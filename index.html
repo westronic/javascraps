@@ -6,8 +6,18 @@
     <title>JavaScraps</title>
   </head>
   <body>
-  <h1>Welcome to JavaScraps!</h1>
+  <h1>JavaScraps</h1>
   <p>A developer's sandbox for JavaScript.</p>
-  <p>More content coming ...soon?</p>
+  <input type="text" id="nameInput" placeholder="...">
+  <button onclick="greetUser()">Submit</button>
+  <p id="outMessage">Welcome to JavaScraps. What is your name?</p>
+    
+  <script>
+    function greetUser() {
+      const name = document.getElementById("nameInput").value;
+      const message = "Hello, " + name + ".";
+      document.getElementById("outMessage").textContent = message;
+    }
+  </script>
   </body>
 </html>
