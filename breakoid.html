@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Breakoid Bricks</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    html,body { height:100%; margin:0; background:#000; color:#fff; font-family: "Courier New", monospace; }
+    #gameCanvas { display:block; margin:0 auto; background:#000; touch-action: none; }
+    #overlay { position:fixed; left:0; top:0; width:100%; text-align:left; pointer-events:none; }
+    .score { position:absolute; right:5%; top:1%; font-size:48px; }
+    .title { position:absolute; left:50%; top:4.5%; font-size:20px; }
+    .subtitle { position:absolute; left:75%; top:9.5%; font-size:12px; }
+    .help { position:absolute; left:5%; top:12.5%; font-size:12px; }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="1024" height="768"></canvas>
+  <div id="overlay">
+    <div class="score" id="scoreEl">0</div>
+    <div class="title" id="titleEl">Breakoid Bricks</div>
+    <div class="subtitle" id="subtitleEl">Open Source Game by Weston Loucks, 2022</div>
+    <div class="help" id="helpEl">Press Tab to enter fullscreen mode, click to release ball</div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Base resolution (keeps sizes identical to your pygame scaling)
+  const dispX = 1024;
+  const dispY = 768;
+
+  // Derived sizes (same calculations as Python code)
+  let ballW = 0.0234 * dispX;
+  let ballH = 0.0312 * dispY;
+  let brickW = 0.1 * dispX;
+  let brickH = 0.02 * dispY;
+  let paddleW = 0.1 * dispX;
+  const paddleH = 0.03 * dispY;
+  const pw = 0.000977 * dispX;
+  const ph = 0.001302 * dispY;
+
+  // Game state
+  let quitter = false;
+  let score = 0;
+  let ballReset = true;
+  let ballX = 0.5 * dispX;
+  let ballY = 0.75 * dispY;
+  let ballSpeedX = 5 * pw;
+  let ballSpeedY = -5 * ph;
+  const paddleY = 0.9 * dispY;
+  const pbx = 0.0125 * dispX;
+  const pby = 0.2 * dispY;
+  const step = 1.25;
+  let row1 = [1,1,1,1,1,1,1,1];
+  let row2 = [1,1,1,1,1,1,1,1];
+  let mouseSpeedX = 0;
+  let oldx = 0;
+
+  // Mouse tracking
+  let mouseX = dispX * 0.5;
+  let mouseY = dispY * 0.5;
+  let mouseDown = false;
+
+  // Canvas resizing to keep aspect ratio
+  function fitCanvas() {
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    const scale = Math.min(winW / dispX, winH / dispY);
+    canvas.style.width = Math.round(dispX * scale) + "px";
+    canvas.style.height = Math.round(dispY * scale) + "px";
+  }
+  window.addEventListener('resize', fitCanvas);
+  fitCanvas();
+
+  // Input handlers
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = dispX / rect.width;
+    mouseX = (e.clientX - rect.left) * scaleX;
+    mouseY = (e.clientY - rect.top) * (dispY / rect.height);
+  });
+  canvas.addEventListener('mousedown', (e) => { mouseDown = true; });
+  window.addEventListener('mouseup', () => { mouseDown = false; });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(()=>{});
+      } else {
+        document.exitFullscreen().catch(()=>{});
+      }
+    }
+  });
+
+  function headertxt() {
+    document.getElementById('scoreEl').textContent = String(score);
+    const titleEl = document.getElementById('titleEl');
+    const subtitleEl = document.getElementById('subtitleEl');
+    const helpEl = document.getElementById('helpEl');
+    if (score === 0) {
+      titleEl.style.display = 'block';
+      subtitleEl.style.display = 'block';
+      helpEl.style.display = 'block';
+    } else {
+      titleEl.style.display = 'none';
+      subtitleEl.style.display = 'none';
+      helpEl.style.display = 'none';
+    }
+  }
+
+  // Main loop variables
+  let lastTime = performance.now();
+  const targetFPS = 60;
+  const frameDelay = 1000 / targetFPS;
+
+  function update(dt) {
+    // paddle position follows mouse (centered)
+    const paddleX = mouseX - 0.05 * dispX;
+
+    // Move ball if released
+    if (!ballReset) {
+      ballX += ballSpeedX * dt * (targetFPS / 1000) * 1000 / 1000; // keep proportionate to dt
+      ballY += ballSpeedY * dt * (targetFPS / 1000) * 1000 / 1000;
+    }
+
+    // Wall collisions
+    if (ballX + ballW > dispX) { ballSpeedX = -Math.abs(ballSpeedX); ballX = dispX - ballW; }
+    if (ballX < 0) { ballSpeedX = Math.abs(ballSpeedX); ballX = 0; }
+    if (ballY < 0) { ballSpeedY = Math.abs(ballSpeedY); ballY = 0; }
+
+    // Brick collisions - top row
+    for (let i=0;i<8;i++) {
+      if (row1[i] === 1) {
+        const brickCenterY = pby + 0.5*brickH;
+        const brickCenterX = pbx + 0.5*brickW + i * step * brickW;
+        if (Math.abs((ballY + 0.5*ballH) - brickCenterY) < ballH &&
+            Math.abs((ballX + 0.5*ballW) - brickCenterX) < 0.5*brickW + 0.5*ballW) {
+          row1[i] = 0;
+          ballSpeedY = -ballSpeedY;
+          score += 1;
+        }
+      }
+    }
+
+    // Brick collisions - bottom row
+    for (let i=0;i<8;i++) {
+      if (row2[i] === 1) {
+        const brickCenterY = pby + 8.5*brickH;
+        const checkX = pbx + i * step * brickW;
+        // replicate original slightly different condition
+        if (Math.abs((ballY + 0.5*ballH) - brickCenterY) < brickH &&
+            Math.abs((ballX + 0.5*ballW) - (checkX + 0.5*brickW)) < 0.5*brickW + 0.5*ballW) {
+          row2[i] = 0;
+          ballSpeedY = -ballSpeedY;
+          score += 1;
+        }
+      }
+    }
+
+    // ball falls below screen
+    if (ballY > dispY) {
+      ballReset = true;
+    }
+
+    // keep ball on paddle if reset
+    if (ballReset) {
+      ballX = paddleX + 0.5*paddleW - 0.5*ballW;
+      ballY = paddleY - 1.1*ballH;
+    }
+
+    // paddle collision
+    if (Math.abs(ballY - paddleY) < 0.02*dispY &&
+        Math.abs(ballX - (paddleX + 0.5*paddleW)) < 0.5*paddleW &&
+        ballSpeedY > 0) {
+      ballSpeedY = -ballSpeedY;
+      mouseSpeedX = mouseX - oldx;
+      if (mouseSpeedX < 0 && Math.abs(ballSpeedX) < 16*pw) {
+        ballSpeedX -= 3*pw;
+      }
+      if (mouseSpeedX > 0 && Math.abs(ballSpeedX) < 16*pw) {
+        ballSpeedX += 3*pw;
+      }
+    }
+
+    // release ball on mouse click
+    if (mouseDown && ballReset) {
+      if (score <= 96) {
+        ballSpeedY = (-5 - 0.125*score) * ph;
+      } else {
+        ballSpeedY = (-5 - 0.125 * 96) * ph;
+      }
+      if (ballSpeedX < 0) ballSpeedX = -5*pw;
+      else ballSpeedX = 5*pw;
+      ballReset = false;
+    }
+
+    // next level when all bricks cleared and ball below mid screen
+    if (row1.every(v=>v===0) && row2.every(v=>v===0) && ballY > 0.5*dispY) {
+      row1 = [1,1,1,1,1,1,1,1];
+      row2 = [1,1,1,1,1,1,1,1];
+      ballReset = true;
+    }
+
+    // store mouse position when ball is approaching paddle (to compute English)
+    if (ballSpeedY > 0 && Math.abs(ballY + 0.02*dispY - paddleY) < 0.02*dispY) {
+      oldx = mouseX;
+    }
+
+    headertxt();
+  }
+
+  function draw() {
+    // clear
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,dispX,dispY);
+
+    // paddle
+    const paddleX = mouseX - 0.05 * dispX;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(paddleX, paddleY, paddleW, paddleH);
+
+    // ball
+    ctx.fillRect(ballX, ballY, ballW, ballH);
+
+    // bricks top row
+    for (let i=0;i<8;i++) {
+      if (row1[i] === 1) {
+        ctx.fillRect(pbx + i * step*brickW, pby, brickW, brickH);
+      }
+    }
+    // bricks bottom row
+    for (let i=0;i<8;i++) {
+      if (row2[i] === 1) {
+        ctx.fillRect(pbx + i * step*brickW, pby + 8*brickH, brickW, brickH);
+      }
+    }
+  }
+
+  function loop(now) {
+    if (quitter) return;
+    const dt = now - lastTime;
+    if (dt >= frameDelay) {
+      update(dt);
+      draw();
+      lastTime = now;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // Initialize state similar to your python defaults
+  ballX = 0.5*dispX;
+  ballY = 0.75*dispY;
+  ballSpeedX = 5*pw;
+  ballSpeedY = -5*ph;
+  row1 = [1,1,1,1,1,1,1,1];
+  row2 = [1,1,1,1,1,1,1,1];
+  fitCanvas();
+
+  // Touch support: map touch to mouse
+  canvas.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    const t = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = dispX / rect.width;
+    mouseX = (t.clientX - rect.left) * scaleX;
+  }, {passive:false});
+  canvas.addEventListener('touchstart', (e)=>{ mouseDown = true; e.preventDefault(); }, {passive:false});
+  canvas.addEventListener('touchend', (e)=>{ mouseDown = false; e.preventDefault(); }, {passive:false});
+
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
