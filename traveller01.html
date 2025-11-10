@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRAVELLER - Text Adventure by Weston Loucks</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'VT323', monospace;
+            padding: 20px;
+        }
+        
+        #dos-screen {
+            background: #000;
+            border: 3px solid #0a0;
+            box-shadow: 
+                0 0 10px #0a0,
+                inset 0 0 10px rgba(0, 170, 0, 0.2);
+            width: 100%;
+            max-width: 1260px;
+            height: 840px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        #output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            color: #0f0;
+            font-size: 30px;
+            line-height: 1.4;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px #0f0;
+            scrollbar-width: thin;
+            scrollbar-color: #0a0 #000;
+        }
+        
+        #output::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        #output::-webkit-scrollbar-track {
+            background: #000;
+        }
+        
+        #output::-webkit-scrollbar-thumb {
+            background: #0a0;
+        }
+        
+        .cyan { color: #0ff; text-shadow: 0 0 5px #0ff; }
+        .yellow { color: #ff0; text-shadow: 0 0 5px #ff0; }
+        .red { color: #f00; text-shadow: 0 0 5px #f00; }
+        .white { color: #fff; text-shadow: 0 0 5px #fff; }
+        
+        #input-line {
+            padding: 10px 20px;
+            background: #001100;
+            border-top: 2px solid #0a0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        #prompt {
+            color: #0ff;
+            font-size: 40px;
+            text-shadow: 0 0 5px #0ff;
+        }
+        
+        #input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'VT323', monospace;
+            font-size: 40px;
+            outline: none;
+            text-shadow: 0 0 5px #0f0;
+        }
+        
+        .scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                transparent 50%,
+                rgba(0, 170, 0, 0.05) 50%
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+            animation: scanlines 8s linear infinite;
+        }
+        
+        @keyframes scanlines {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="dos-screen">
+        <div class="scanline"></div>
+        <div id="output"></div>
+        <div id="input-line">
+            <span id="prompt">&gt;</span>
+            <input type="text" id="input" autocomplete="off" autofocus>
+            
+        </div>
+    </div>
+
+    <script>
+        // Game State
+        let currentRoom = "inn";
+        let inventory = [];
+        let moves = 0;
+        let score = 0;
+        let gameRunning = true;
+        let health = 100;
+
+        // Room Definitions
+        const rooms = {
+            inn: {
+                name: "The Inn",
+                desc: "You are at the local inn on the edge of town. The innkeeper is sweeping behind the front counter.",
+                exits: {south: "corridor", east: "navigation"},
+                items: ["mug"],
+                visited: false
+            },
+            corridor: {
+                name: "Main Corridor",
+                desc: "A narrow corridor with flickering lights. Doors lead to various sections of the ship.",
+                exits: {north: "inn", south: "cargo", east: "quarters", west: "engineering"},
+                items: [],
+                visited: false
+            },
+            navigation: {
+                name: "Navigation Room",
+                desc: "Star charts and navigation equipment fill this small room. The main computer terminal hums quietly.",
+                exits: {west: "inn"},
+                items: ["star_map"],
+                visited: false
+            },
+            quarters: {
+                name: "Crew Quarters",
+                desc: "A small sleeping area with bunks along the walls. Personal effects are scattered about.",
+                exits: {west: "corridor"},
+                items: ["keycard"],
+                visited: false
+            },
+            cargo: {
+                name: "Cargo Bay",
+                desc: "A large open area for storing supplies. Metal crates are stacked against the walls.",
+                exits: {north: "corridor"},
+                items: ["oxygen_tank", "repair_kit"],
+                visited: false
+            },
+            engineering: {
+                name: "Engineering Bay",
+                desc: "The heart of the ship. Machinery thrums with power. Warning lights blink on several panels.",
+                exits: {east: "corridor"},
+                items: ["wrench"],
+                visited: false
+            }
+        };
+
+        // Items
+        const items = {
+            mug: "Mug - An old metal drinking vessel",
+            star_map: "Star Map - Shows nearby star systems",
+            keycard: "Security Keycard - For restricted areas",
+            oxygen_tank: "Oxygen Tank - Emergency oxygen supply",
+            repair_kit: "Repair Kit - Tools for repairs",
+            wrench: "Wrench - A heavy metal tool"
+        };
+
+        // Command Aliases
+        const aliases = {
+            n: "north", s: "south", e: "east", w: "west",
+            i: "inventory", inv: "inventory",
+            l: "look", x: "examine",
+            get: "take", grab: "take"
+        };
+
+        // Display Functions
+        const output = document.getElementById('output');
+        const input = document.getElementById('input');
+
+        function print(text, color = '') {
+            const line = document.createElement('div');
+            if (color) line.className = color;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function printBorder() {
+            print('='.repeat(80), 'cyan');
+        }
+
+        function printLine() {
+            print('-'.repeat(80), 'cyan');
+        }
+
+        function clearScreen() {
+            output.innerHTML = '';
+        }
+
+        function showRoom() {
+            const room = rooms[currentRoom];
+            printLine();
+            print(`LOCATION: ${room.name.toUpperCase()}`, 'yellow');
+            printLine();
+            print(room.desc);
+            print('');
+            
+            if (room.items.length > 0) {
+                print('You see: ' + room.items.map(i => i.replace('_', ' ')).join(', '), 'cyan');
+            }
+            
+            print('');
+            const exits = Object.keys(room.exits).join(', ');
+            print(`Exits: ${exits}`, 'white');
+            printLine();
+            
+            room.visited = true;
+        }
+
+        function showInventory() {
+            printLine();
+            if (inventory.length === 0) {
+                print('Your inventory is empty.');
+            } else {
+                print('INVENTORY:', 'yellow');
+                inventory.forEach(item => {
+                    print('- ' + items[item]);
+                });
+            }
+            printLine();
+        }
+
+        function showStatus() {
+            print(`Moves: ${moves} | Health: ${health}% | Score: ${score}`, 'cyan');
+        }
+
+        // Game Commands
+        function processCommand(cmd) {
+            cmd = cmd.toLowerCase().trim();
+            if (!cmd) return;
+
+            const words = cmd.split(' ');
+            let action = words[0];
+            
+            // Check aliases
+            if (aliases[action]) action = aliases[action];
+            
+            moves++;
+            health = Math.max(0, health - 1);
+
+            switch(action) {
+                case 'north':
+                case 'south':
+                case 'east':
+                case 'west':
+                    move(action);
+                    break;
+                case 'look':
+                    showRoom();
+                    break;
+                case 'inventory':
+                    showInventory();
+                    break;
+                case 'take':
+                    if (words[1]) takeItem(words[1]);
+                    else print('Take what?');
+                    break;
+                case 'drop':
+                    if (words[1]) dropItem(words[1]);
+                    else print('Drop what?');
+                    break;
+                case 'examine':
+                    if (words[1]) examineItem(words[1]);
+                    else print('Examine what?');
+                    break;
+                case 'help':
+                    showHelp();
+                    break;
+                case 'status':
+                    showStatus();
+                    break;
+                default:
+                    print("I don't understand that command.", 'red');
+                    print('Type HELP for a list of commands.');
+            }
+
+            if (health <= 0) {
+                print('', 'red');
+                printBorder();
+                print('HEALTH DEPLETED - GAME OVER', 'red');
+                printBorder();
+                gameRunning = false;
+            }
+        }
+
+        function move(direction) {
+            const room = rooms[currentRoom];
+            if (room.exits[direction]) {
+                currentRoom = room.exits[direction];
+                print(`You go ${direction}...`);
+                print('');
+                showRoom();
+            } else {
+                print("You can't go that way.", 'red');
+            }
+        }
+
+        function takeItem(itemName) {
+            itemName = itemName.replace(' ', '_');
+            const room = rooms[currentRoom];
+            const idx = room.items.indexOf(itemName);
+            
+            if (idx !== -1) {
+                room.items.splice(idx, 1);
+                inventory.push(itemName);
+                print('Taken.', 'cyan');
+                score += 5;
+            } else {
+                print("You don't see that here.", 'red');
+            }
+        }
+
+        function dropItem(itemName) {
+            itemName = itemName.replace(' ', '_');
+            const idx = inventory.indexOf(itemName);
+            
+            if (idx !== -1) {
+                inventory.splice(idx, 1);
+                rooms[currentRoom].items.push(itemName);
+                print('Dropped.', 'cyan');
+            } else {
+                print("You don't have that.", 'red');
+            }
+        }
+
+        function examineItem(itemName) {
+            itemName = itemName.replace(' ', '_');
+            if (items[itemName]) {
+                print(items[itemName], 'yellow');
+            } else {
+                print("You don't see that.", 'red');
+            }
+        }
+
+        function showHelp() {
+            printLine();
+            print('COMMANDS:', 'yellow');
+            print('NORTH/N, SOUTH/S, EAST/E, WEST/W - Move');
+            print('LOOK/L - Look around');
+            print('TAKE [item] - Take an item');
+            print('DROP [item] - Drop an item');
+            print('INVENTORY/I - Check inventory');
+            print('EXAMINE/X [item] - Examine item');
+            print('STATUS - Show game status');
+            print('HELP - Show this help');
+            printLine();
+        }
+
+        // Input Handler
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && gameRunning) {
+                const cmd = input.value;
+                print(`> ${cmd}`, 'white');
+                input.value = '';
+                print('');
+                processCommand(cmd);
+                print('');
+            }
+        });
+
+        // Initialize Game
+        printBorder();
+        print('TRAVELLER - AN ADVENTURE BY WESTON LOUCKS', 'yellow');
+        printBorder();
+        print('');
+        print('You just arrived in a strange town. You do not yet know its name.');
+        print('You feel weary from a long day of walking.')
+        print('All you need is some silver, maybe fifty pieces, to start a farm.');
+        print('For now, you would settle for a warm meal and a place to sleep.')
+        print('');
+        print('Type HELP for commands.');
+        print('');
+        showRoom();
+        print('');
+    </script>
+</body>
+</html>
