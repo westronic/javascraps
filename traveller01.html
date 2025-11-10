@@ -139,42 +139,42 @@
             inn: {
                 name: "The Inn",
                 desc: "You are at the local inn on the edge of town. The innkeeper is sweeping behind the front counter.",
-                exits: {south: "corridor", east: "navigation"},
+                exits: {south: "hall", east: "cobbleStreetNorth"},
                 items: ["mug"],
                 visited: false
             },
-            corridor: {
-                name: "Main Corridor",
-                desc: "A narrow corridor with flickering lights. Doors lead to various sections of the ship.",
-                exits: {north: "inn", south: "cargo", east: "quarters", west: "engineering"},
+            hall: {
+                name: "Main hall",
+                desc: "A narrow hall with flickering lights. Doors lead to various sections of the ship.",
+                exits: {north: "inn", south: "cargo", east: "cobbleStreetSouth", west: "engineering"},
                 items: [],
                 visited: false
             },
-            navigation: {
-                name: "Navigation Room",
-                desc: "Star charts and navigation equipment fill this small room. The main computer terminal hums quietly.",
+            cobbleStreetNorth: {
+                name: "Cobblestone Street (North)",
+                desc: "On the north edge of town.",
                 exits: {west: "inn"},
-                items: ["star_map"],
+                items: ["map"],
                 visited: false
             },
-            quarters: {
-                name: "Crew Quarters",
-                desc: "A small sleeping area with bunks along the walls. Personal effects are scattered about.",
-                exits: {west: "corridor"},
-                items: ["keycard"],
+            cobbleStreetSouth: {
+                name: "Cobblestone Street (South)",
+                desc: "On the south edge of town. Soup was recently spilled here.",
+                exits: {west: "hall"},
+                items: ["room_key"],
                 visited: false
             },
             cargo: {
                 name: "Cargo Bay",
                 desc: "A large open area for storing supplies. Metal crates are stacked against the walls.",
-                exits: {north: "corridor"},
-                items: ["oxygen_tank", "repair_kit"],
+                exits: {north: "hall"},
+                items: ["bread", "repair_kit"],
                 visited: false
             },
             engineering: {
                 name: "Engineering Bay",
                 desc: "The heart of the ship. Machinery thrums with power. Warning lights blink on several panels.",
-                exits: {east: "corridor"},
+                exits: {east: "hall"},
                 items: ["wrench"],
                 visited: false
             }
@@ -183,9 +183,9 @@
         // Items
         const items = {
             mug: "Mug - An old metal drinking vessel",
-            star_map: "Star Map - Shows nearby star systems",
-            keycard: "Security Keycard - For restricted areas",
-            oxygen_tank: "Oxygen Tank - Emergency oxygen supply",
+            map: "Town Map - Shows locations and names",
+            room_key: "Key - Allows access to a room at the inn",
+            bread: "Bread - A loaf of bread. Still soft.",
             repair_kit: "Repair Kit - Tools for repairs",
             wrench: "Wrench - A heavy metal tool"
         };
@@ -398,9 +398,7 @@
         print('TRAVELLER - AN ADVENTURE BY WESTON LOUCKS', 'yellow');
         printBorder();
         print('');
-        print('You just arrived in a strange town. You do not yet know its name.');
-        print('You feel weary from a long day of walking.')
-        print('All you need is some silver, maybe fifty pieces, to start a farm.');
+        print('You just arrived in a strange town, its name still unknown to you. Tired from the days walk, you step into the first building you see. All you need is some silver, maybe fifty pieces, to start a farm.');
         print('For now, you would settle for a warm meal and a place to sleep.')
         print('');
         print('Type HELP for commands.');
