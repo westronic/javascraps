@@ -17,10 +17,12 @@
             background: #000;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
             font-family: 'VT323', monospace;
             padding: 20px;
+            margin: 0;
+            overflow: hidden;
         }
         
         #dos-screen {
@@ -137,45 +139,45 @@
         // Room Definitions
         const rooms = {
             inn: {
-                name: "The Inn",
-                desc: "You are at the local inn on the edge of town. The innkeeper is sweeping behind the front counter.",
-                exits: {south: "hall", east: "cobbleStreetNorth"},
+                name: "The Inn (Lobby)",
+                desc: "You are at the local inn on the edge of town. The innkeeper is sweeping behind the front counter. To the north, the building leads into a large hallway.",
+                exits: {north: "hall", east: "cobbleStreetNorth"},
                 items: ["mug"],
                 visited: false
             },
             hall: {
                 name: "Main hall",
-                desc: "A narrow hall with flickering lights. Doors lead to various sections of the ship.",
-                exits: {north: "inn", south: "cargo", east: "cobbleStreetSouth", west: "engineering"},
+                desc: "A narrow hall with flickering lights. To your north and west are locked rooms. On the eastern wall there is a torch dimly lighting what appears to be a painting of a horse.",
+                exits: {south: "inn"},
                 items: [],
                 visited: false
             },
             cobbleStreetNorth: {
                 name: "Cobblestone Street (North)",
-                desc: "On the north edge of town.",
-                exits: {west: "inn"},
+                desc: "On the north edge of town. North of you is the mountain you descended from when you began this journey, and you would rather not go back that way.",
+                exits: {west: "inn", south: "cobbleStreetSouth", east: "meadow"},
                 items: ["map"],
                 visited: false
             },
             cobbleStreetSouth: {
                 name: "Cobblestone Street (South)",
-                desc: "On the south edge of town. Soup was recently spilled here.",
-                exits: {west: "hall"},
+                desc: "On the south edge of town. The stones that pave the street have some kind of soupy residue on them. To the east and south are private houses with tall fences lining their front yards.",
+                exits: {north: "cobbleStreetNorth", west: "store"},
                 items: ["room_key"],
                 visited: false
             },
-            cargo: {
-                name: "Cargo Bay",
-                desc: "A large open area for storing supplies. Metal crates are stacked against the walls.",
-                exits: {north: "hall"},
+            store: {
+                name: "General Store",
+                desc: "A store with some food and items for sale. Metal crates are stacked against the walls.",
+                exits: {east: "cobbleStreetSouth"},
                 items: ["bread", "repair_kit"],
                 visited: false
             },
-            engineering: {
-                name: "Engineering Bay",
-                desc: "The heart of the ship. Machinery thrums with power. Warning lights blink on several panels.",
-                exits: {east: "hall"},
-                items: ["wrench"],
+            meadow: {
+                name: "Open Meadow",
+                desc: "A grassy field at the base of a steep cliff. To the south is a fence wall and to the east is a thick stand of bushes.",
+                exits: {west: "cobbleStreetNorth"},
+                items: ["sword"],
                 visited: false
             }
         };
@@ -185,9 +187,9 @@
             mug: "Mug - An old metal drinking vessel",
             map: "Town Map - Shows locations and names",
             room_key: "Key - Allows access to a room at the inn",
-            bread: "Bread - A loaf of bread. Still soft.",
+            bread: "Bread - A loaf of bread, still soft",
             repair_kit: "Repair Kit - Tools for repairs",
-            wrench: "Wrench - A heavy metal tool"
+            sword: "Sword - A heavy metal weapon"
         };
 
         // Command Aliases
@@ -312,7 +314,7 @@
             if (health <= 0) {
                 print('', 'red');
                 printBorder();
-                print('HEALTH DEPLETED - GAME OVER', 'red');
+                print('Too injured to continue, you must end your journey. - GAME OVER', 'red');
                 printBorder();
                 gameRunning = false;
             }
