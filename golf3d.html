@@ -458,18 +458,83 @@ function drawHUD(){
   ctx.fillText(`Wind: ${hole.windLbl}`, W-182, H-34);
   ctx.fillStyle="#9fd6b0";
   ctx.fillText(`Cam [C]: ${CAM_NAMES[S.camMode]}`, W-182, H-16);
-  // wind arrow
-  if(hole.wind.x||hole.wind.z){
-    const wa=Math.atan2(hole.wind.z,hole.wind.x), ax=W-30, ay=H-27;
-    ctx.strokeStyle=COL.white; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(ax-10*Math.cos(wa),ay-10*Math.sin(wa));
-    ctx.lineTo(ax+10*Math.cos(wa),ay+10*Math.sin(wa)); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(ax+10*Math.cos(wa),ay+10*Math.sin(wa));
-    ctx.lineTo(ax+4*Math.cos(wa+2.6),ay+4*Math.sin(wa+2.6));
-    ctx.lineTo(ax+4*Math.cos(wa-2.6),ay+4*Math.sin(wa-2.6));
-    ctx.closePath(); ctx.fillStyle=COL.white; ctx.fill();
-  }
+}
+
+/* ---------- Wind compass arrow (3D, screen-fixed) ---------- */
+function computeWindScreenAngle(){
+  const wx=hole.wind.x, wz=hole.wind.z;
+  const mag=Math.hypot(wx,wz);
+  if(mag<0.001) return null;
+  const ndx=wx/mag, ndz=wz/mag;
+  // project a short world-space segment along the wind direction near the
+  // ball to get the wind's true on-screen heading under the active camera
+  const ref={x:S.ball.x,y:0,z:S.ball.z};
+  const p0=project(ref);
+  const p1=project({x:ref.x+ndx*10,y:0,z:ref.z+ndz*10});
+  if(!p0||!p1) return null;
+  const dx=p1.x-p0.x, dy=p1.y-p0.y;
+  if(Math.hypot(dx,dy)<0.001) return null;
+  return Math.atan2(dy,dx);
+}
+
+function traceArrowShape(R){
+  // arrow pointing along local +x; caller rotates/translates as needed
+  ctx.beginPath();
+  ctx.moveTo(R, 0);
+  ctx.lineTo(R*0.25, -R*0.55);
+  ctx.lineTo(R*0.25, -R*0.22);
+  ctx.lineTo(-R*0.7, -R*0.22);
+  ctx.lineTo(-R*0.7,  R*0.22);
+  ctx.lineTo(R*0.25,  R*0.22);
+  ctx.lineTo(R*0.25,  R*0.55);
+  ctx.closePath();
+}
+
+function drawWindCompass(){
+  const windMag = Math.hypot(hole.wind.x, hole.wind.z);
+  const visible = windMag>0.001
+    && S.phase!=="acc" && S.phase!=="pwr"
+    && S.phase!=="holed" && S.phase!=="gameover"
+    && S.club!==PUTTER
+    && !onGreen(S.ball.x,S.ball.z);
+  if(!visible) return;
+
+  const angle = computeWindScreenAngle();
+  if(angle===null) return;
+
+  const cx=W/2, cy=26, R=16;
+
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(angle);
+
+  // extruded "shadow" face for a 3D, beveled look
+  ctx.save();
+  ctx.translate(2,3);
+  traceArrowShape(R);
+  ctx.fillStyle="#0a1440";
+  ctx.fill();
+  ctx.restore();
+
+  // lit top face
+  const grad=ctx.createLinearGradient(0,-R,0,R);
+  grad.addColorStop(0,"#3a56c8");
+  grad.addColorStop(1,"#101f5e");
+  traceArrowShape(R);
+  ctx.fillStyle=grad;
+  ctx.fill();
+  ctx.strokeStyle="#0a1440"; ctx.lineWidth=1;
+  ctx.stroke();
+
+  ctx.restore();
+
+  // magnitude label, styled like AIM/PWR but smaller
+  const mag = parseInt(hole.windLbl,10) || 0;
+  ctx.font="bold 11px 'Courier New',monospace";
+  ctx.fillStyle="#3a56c8";
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  ctx.fillText(`${mag} MPH`, cx, cy+R+4);
+  ctx.textAlign="left";
 }
 
 function drawMeters(){
@@ -577,6 +642,7 @@ function frame(now){
   updateCamera();
   drawWorld();
   drawHUD();
+  drawWindCompass();
   drawMeters();
   drawOverlays();
   requestAnimationFrame(frame);
