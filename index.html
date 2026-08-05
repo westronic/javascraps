@@ -7,10 +7,13 @@
   </head>
   <body>
   <h1>JavaScraps</h1>
-  <p>A developer's sandbox for JavaScript. This is under development.<a href="/javascraps/breakoid.html">Play a game while you wait.</a></p>
+  <p>A developer's sandbox for JavaScript. Games you can play:</p>
+  <p><a href="/javascraps/breakoid.html">Breakoid Bricks</a></p>
+  <p><a href="/javascraps/golf3d.html">Golf 3D</a></p>
+  
   <input type="text" id="nameInput" placeholder="...">
   <button onclick="greetUser()">Submit</button>
-  <p id="outMessage">Welcome to JavaScraps. What is your name?</p>
+  <p id="outMessage"What is your name?</p>
     
   <script>
     function greetUser() {
@@ -19,5 +22,6 @@
       document.getElementById("outMessage").textContent = message;
     }
   </script>
+    
   </body>
 </html>
